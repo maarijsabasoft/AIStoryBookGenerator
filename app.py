@@ -25,8 +25,7 @@ import logging
 import secrets
 import datetime
 import stripe
-from groq_sdk import GroqClient  # make sure this is installed
-# Conditional import for elevenlabs
+from groq import Groq
 try:
     from elevenlabs.client import ElevenLabs
     ELEVENLABS_AVAILABLE = True
@@ -89,7 +88,8 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
 # Initialize clients
-groq_client = GroqClient(api_key=GROQ_API_KEY)
+groq_client = Groq(api_key=GROQ_API_KEY)
+
 genai.configure(api_key=GEMINI_API_KEY)
 eleven_client = ElevenLabs(api_key=ELEVENLABS_API_KEY) if ELEVENLABS_AVAILABLE and ELEVENLABS_API_KEY != "your_elevenlabs_api_key_here" else None
 
