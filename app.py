@@ -84,12 +84,12 @@ os.makedirs('static', exist_ok=True)
 os.makedirs('templates', exist_ok=True)
 
 # API Keys
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_API_KEY = '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'
 GEMINI_API_KEY = GROQ_API_KEY = os.getenv("GEMINI_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
 # Initialize clients
-groq_client = Groq(api_key=GROQ_API_KEY)
+groq_client = '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'
 genai.configure(api_key=GEMINI_API_KEY)
 eleven_client = ElevenLabs(api_key=ELEVENLABS_API_KEY) if ELEVENLABS_AVAILABLE and ELEVENLABS_API_KEY != "your_elevenlabs_api_key_here" else None
 
