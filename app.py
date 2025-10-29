@@ -76,8 +76,8 @@ google = oauth.register(
 )
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+pdfmetrics.registerFont(TTFont('Comic', 'fonts/Comic.ttf'))
 
-pdfmetrics.registerFont(TTFont('Comic', 'Comic.ttf'))
 # Database Setup
 USER_DB = os.path.join(os.path.dirname(__file__), "users.db")
 os.makedirs('static', exist_ok=True)
