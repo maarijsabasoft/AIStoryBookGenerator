@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt to Story</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://js.stripe.com/v3/"></script>
+    <!-- Existing head content -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+</head>
+<body>
+    <div id="flash-messages" style="position: fixed; top: 80px; right: 20px; z-index: 1001;"></div>
+
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAuthModal()">&times;</span>
+            <h2 id="modalTitle" data-i18n="sign_in">Sign In</h2>
+            <div id="errorMessage" class="error-message"></div>
+            <div class="auth-form">
+                <div class="form-group">
+                    <label for="email" data-i18n="email">Email</label>
+                    <input type="email" id="email" placeholder="Enter your email" data-i18n-placeholder="enter_email">
+                </div>
+                <div class="form-group">
+                    <label for="password" data-i18n="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter your password" data-i18n-placeholder="enter_password">
+                </div>
+                <div class="form-group" id="nameGroup" style="display: none;">
+                    <label for="name" data-i18n="name">Name</label>
+                    <input type="text" id="name" placeholder="Enter your name" data-i18n-placeholder="enter_name">
+                </div>
+                <button class="btn btn-primary" id="authButton" onclick="handleAuth()" data-i18n="sign_in">Sign In</button>
+                <div style="display: flex; align-items: center; justify-content: center; margin: 15px 0;">
+                    <hr style="flex: 1; border: none; border-top: 1px solid #dadce0; margin: 0 10px;">
+                    <span style="color: #5f6368; font-size: 14px; font-family: 'Roboto', sans-serif;" data-i18n="or">OR</span>
+                    <hr style="flex: 1; border: none; border-top: 1px solid #dadce0; margin: 0 10px;">
+                </div>
+                <div class="google-signin">
+                    <a href="/google-login">
+                        <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">
+                        <span data-i18n="sign_in_with_google">Sign in with Google</span>
+                    </a>
+                </div>
+                <div class="auth-toggle" onclick="toggleAuthMode()" data-i18n="no_account_sign_up">Don't have an account? Sign Up</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="otpModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeOtpModal()">&times;</span>
+            <h2>Verify Your Email</h2>
+            <div id="otpErrorMessage" class="error-message"></div>
+            <div class="auth-form">
+                <p style="text-align: center; margin-bottom: 20px; color: #666;">
+                    A 6-digit OTP code has been sent to your email: <strong id="otpEmail"></strong>
+                </p>
+                <p style="text-align: center; margin-bottom: 20px; color: #999; font-size: 14px;">
+                    Please check your email and enter the code below to complete your registration.
+                </p>
+                <div class="form-group">
+                    <label for="otpInput">Enter OTP Code</label>
+                    <input type="text" id="otpInput" placeholder="Enter 6-digit code" maxlength="6" pattern="[0-9]{6}" style="text-align: center; font-size: 20px; letter-spacing: 5px; font-weight: bold;" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                </div>
+                <button class="btn btn-primary" onclick="verifyOtp()">Verify OTP</button>
+                <button class="btn btn-secondary" onclick="closeOtpModal()" style="margin-top: 10px; background: #6c757d;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <header>
+        <div class="container">
+            <nav class="navbar">
+                <div class="logo">
+                    <i class="fas fa-book-open"></i>
+                    <span data-i18n="PromptToStory">PromptToStory</span>
+                </div>
+                <div class="hamburger">
+                    <i class="fas fa-bars"></i>
+                </div>
+                <div class="nav-links">
+                    <a href="#features" data-i18n="features">Features</a>
+                    <a href="#how-it-works" data-i18n="how_it_works">How It Works</a>
+                    <a href="#examples" data-i18n="examples">Examples</a>
+                    <a href="#pricing" data-i18n="pricing">Pricing</a>
+                    <div class="user-info" id="userInfo" style="display: none;">
+                        <img id="userPhoto" src="" alt="User">
+                        <span id="userName"></span>
+                    </div>
+                    <button class="cta-button" id="authBtn" onclick="openAuthModal()" data-i18n="sign_in">Sign In</button>
+                    <button class="cta-button" id="logoutBtn" style="display: none;" onclick="logout()" data-i18n="sign_out">Sign Out</button>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <section id="hero">
+        <div class="container">
+            <div class="section-content">
+                <div class="hero-content">
+                    <h1 data-i18n="hero_title">Unleash Your Child's Imagination</h1>
+                    <p data-i18n="hero_description">Create magical, AI-powered stories with vibrant characters and animations that bring tales to life!</p>
+                    <div class="hero-buttons">
+                        <button class="btn btn-primary" onclick="startNow()" data-i18n="start_creating">Start Creating</button>
+                        <a href="#examples" class="btn btn-secondary" data-i18n="see_examples">See Examples</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="features">
+        <div class="container">
+            <div class="section-content">
+                <div class="section-title">
+                    <h2 data-i18n="magical_features">Magical Features</h2>
+                </div>
+                <div class="features-container">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-magic"></i>
+                        </div>
+                        <h3 data-i18n="personalized_tales">Personalized Tales</h3>
+                        <p data-i18n="personalized_tales_desc">Shape unique stories with your child's name, favorite characters, and creative prompts.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-globe"></i>
+                        </div>
+                        <h3 data-i18n="global_reach">Global Reach</h3>
+                        <p data-i18n="global_reach_desc">Stories available in 15+ languages to delight children around the world.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-film"></i>
+                        </div>
+                        <h3 data-i18n="dynamic_media">Dynamic Media</h3>
+                        <p data-i18n="dynamic_media_desc">Generate beautiful PDFs </p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <h3 data-i18n="ai_story_assistant">AI Story Assistant</h3>
+                        <p data-i18n="ai_story_assistant_desc">Get smart suggestions for characters, plots, and endings to spark creativity instantly.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-paint-brush"></i>
+                        </div>
+                        <h3 data-i18n="illustrated_magic">Illustrated Magic</h3>
+                        <p data-i18n="illustrated_magic_desc">Each story comes alive with custom illustrations generated to match your story's theme.</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-cloud-download-alt"></i>
+                        </div>
+                        <h3 data-i18n="easy_access">Easy Access</h3>
+                        <p data-i18n="easy_access_desc">Instantly download or share your stories anywhere with just one click.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="how-it-works">
+        <div class="container">
+            <div class="section-content">
+                <div class="section-title">
+                    <h2 data-i18n="how_it_works">How It Works</h2>
+                </div>
+                <div class="steps-container">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h3 data-i18n="write_your_story_idea">Write Your Story Idea</h3>
+                            <p data-i18n="write_your_story_idea_desc">Describe your story concept, characters, and setting in your own words.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h3 data-i18n="customize_options">Customize Options</h3>
+                            <p data-i18n="customize_options_desc">Choose story length, language, and characters to match your preferences.</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h3 data-i18n="enjoy_your_story">Enjoy Your Story</h3>
+                            <p data-i18n="enjoy_your_story_desc">Download your personalized story as a PDF</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="examples">
+        <div class="container">
+            <div class="section-content">
+                <div class="section-title">
+                    <h2 data-i18n="story_examples">Story Examples</h2>
+                </div>
+                <div class="examples-container">
+                    <div class="example-card">
+                        <div class="example-image" style="background: url('/static/e1.png') center center / cover no-repeat;"></div>
+                        <div class="example-content">
+                            <h3 data-i18n="puppy_big_day">Puppy's Big Day</h3>
+                            <p data-i18n="puppy_big_day_desc">A clever dog shines at school, winning hearts and awards with his intelligence and charm.</p>
+                        </div>
+                    </div>
+                    <div class="example-card">
+                        <div class="example-image" style="background: url('/static/e2.png') center center / cover no-repeat;"></div>
+                        <div class="example-content">
+                            <h3 data-i18n="enchanted_woods">Enchanted Woods</h3>
+                            <p data-i18n="enchanted_woods_desc">Journey through a magical forest with talking animals and hidden treasures.</p>
+                        </div>
+                    </div>
+                    <div class="example-card">
+                        <div class="example-image" style="background: url('/static/e3.png') center center / cover no-repeat;"></div>
+                        <div class="example-content">
+                            <h3 data-i18n="superhero_star">Superhero Star</h3>
+                            <p data-i18n="superhero_star_desc">A young hero discovers powers and saves the day with courage and kindness.</p>
+                        </div>
+                    </div>
+                    <div class="example-card">
+                        <div class="example-image" style="background: url('/static/e4.png') center center / cover no-repeat;"></div>
+                        <div class="example-content">
+                            <h3 data-i18n="ocean_adventure">Ocean Adventure</h3>
+                            <p data-i18n="ocean_adventure_desc">Dive deep with friendly dolphins and uncover a hidden underwater kingdom.</p>
+                        </div>
+                    </div>
+                    <div class="example-card">
+                        <div class="example-image" style="background: url('/static/e5.png') center center / cover no-repeat;"></div>
+                        <div class="example-content">
+                            <h3 data-i18n="galaxy_explorers">Galaxy Explorers</h3>
+                            <p data-i18n="galaxy_explorers_desc">Join brave astronauts on a thrilling mission across the stars.</p>
+                        </div>
+                    </div>
+                    <div class="example-card">
+                        <div class="example-image" style="background: url('/static/e6.png') center center / cover no-repeat;"></div>
+                        <div class="example-content">
+                            <h3 data-i18n="mountain_mystery">Mountain Mystery</h3>
+                            <p data-i18n="mountain_mystery_desc">Climb to the peak where legends come to life and mysteries await discovery.</p>
+                        </div>
+                    </div>
+                    <div class="example-card">
+                        <div class="example-image" style="background: url('/static/e7.png') center center / cover no-repeat;"></div>
+                        <div class="example-content">
+                            <h3 data-i18n="lost_treasure">The Lost Treasure</h3>
+                            <p data-i18n="lost_treasure_desc">Follow a daring pirate and a clever parrot to uncover a hidden golden secret.</p>
+                        </div>
+                    </div>
+                    <div class="example-card">
+                        <div class="example-image" style="background: url('/static/e8.png') center center / cover no-repeat;"></div>
+                        <div class="example-content">
+                            <h3 data-i18n="magical_school">Magical School</h3>
+                            <p data-i18n="magical_school_desc">Discover a world of spells, potions, and adventures at a school for young wizards.</p>
+                        </div>
+                    </div>
+                    <div class="example-card">
+                        <div class="example-image" style="background: url('/static/e9.png') center center / cover no-repeat;"></div>
+                        <div class="example-content">
+                            <h3 data-i18n="desert_dreams">Desert Dreams</h3>
+                            <p data-i18n="desert_dreams_desc">Ride across golden dunes and uncover ancient secrets buried in the sands of time.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="pricing">
+        <div class="container">
+            <div class="section-content">
+                <div class="section-title">
+                    <h2 data-i18n="our_plans">Our Plans</h2>
+                </div>
+                <div class="pricing-container">
+                    <div class="pricing-card" data-plan="basic">
+                        <div class="pricing-header">
+                            <h3 data-i18n="basic">Basic</h3>
+                            <div class="price" data-i18n="free">Free</div>
+                        </div>
+                        <div class="pricing-body">
+                            <ul class="pricing-features">
+                                <li data-i18n="basic_feature_1">5 Pages per Story</li>
+                                <!-- <li data-i18n="basic_feature_2">Standard Images</li> -->
+                                <li data-i18n="basic_feature_3">PDF Export</li>
+                                <li data-i18n="basic_feature_4">3 Stories per Month</li>
+                            </ul>
+                            <button class="btn btn-primary" onclick="subscribe('basic')" data-i18n="get_started">Get Started</button>
+                        </div>
+                    </div>
+                    <div class="pricing-card" data-plan="standard">
+                        <div class="pricing-header">
+                            <h3 data-i18n="standard">Standard</h3>
+                            <div class="price">$24.99</div>
+                            <p data-i18n="per_month">per month</p>
+                        </div>
+                        <div class="pricing-body">
+                            <ul class="pricing-features">
+                                <li data-i18n="standard_feature_1">10 Pages per Story</li>
+                                <!-- <li data-i18n="standard_feature_2">Premium Images</li> -->
+                                <li data-i18n="standard_feature_3">PDF Export</li>
+                                <li data-i18n="standard_feature_4">Unlimited Stories</li>
+                            </ul>
+                            <button class="btn btn-primary" onclick="subscribe('standard')" data-i18n="choose_plan">Choose Plan</button>
+                        </div>
+                    </div>
+                    <div class="pricing-card" data-plan="premium">
+                        <div class="pricing-header">
+                            <h3 data-i18n="premium">Premium</h3>
+                            <div class="price">$49.99</div>
+                            <p data-i18n="per_month">per month</p>
+                        </div>
+                        <div class="pricing-body">
+                            <ul class="pricing-features">
+                                <li data-i18n="premium_feature_1">20 Pages per Story</li>
+                                <!-- <li data-i18n="premium_feature_2">Premium Images</li> -->
+                                <li data-i18n="premium_feature_3">PDF Export</li>
+                                <li data-i18n="premium_feature_4">Unlimited Stories</li>
+                            </ul>
+                            <button class="btn btn-primary" onclick="subscribe('premium')" data-i18n="choose_plan">Choose Plan</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+<div id="tool" style="display: none;">
+    <div class="container">
+        <h1 data-i18n="create_your_story">Create Your Story</h1>
+        <div class="form-group">
+            <label for="prompt" data-i18n="story_prompt">Story Prompt</label>
+            <textarea id="prompt" placeholder="Once upon a time, in a magical forest..." data-i18n-placeholder="story_prompt_placeholder"></textarea>
+        </div>
+        <div class="form-group">
+            <label for="length" data-i18n="story_length">Story Length</label>
+            <select id="length"></select>
+        </div>
+        <div class="form-group">
+            <label for="language" data-i18n="language">Language</label>
+            <select id="language">
+                <option data-i18n="english" value="English">English</option>
+                <option data-i18n="chinese" value="Chinese">Chinese</option>
+                <option data-i18n="hindi" value="Hindi">Hindi</option>
+                <option data-i18n="spanish" value="Spanish">Spanish</option>
+                <option data-i18n="french" value="French">French</option>
+                <option data-i18n="dutch" value="Dutch">Dutch</option>
+                <option data-i18n="russian" value="Russian">Russian</option>
+                <option data-i18n="portuguese" value="Portuguese">Portuguese</option>
+                <option data-i18n="indonesian" value="Indonesian">Indonesian</option>
+                <option data-i18n="german" value="German">German</option>
+            </select>
+        </div>
+        <!-- <div class="form-group">
+            <label for="orientation" data-i18n="orientation">Orientation</label>
+            <select id="orientation">
+                <option data-i18n="a4_portrait" value="a4_portrait">A4 Portrait</option>
+                <option data-i18n="a4_landscape" value="a4_landscape">A4 Landscape</option>
+                <option data-i18n="letter_portrait" value="letter_portrait">Letter Portrait</option>
+                <option data-i18n="letter_landscape" value="letter_landscape">Letter Landscape</option>
+                <option data-i18n="legal_portrait" value="legal_portrait">Legal Portrait</option>
+                <option data-i18n="legal_landscape" value="legal_landscape">Legal Landscape</option>
+            </select>
+        </div> -->
+        <!-- <div class="form-group">
+            <div class="checkbox-group">
+                <input type="checkbox" id="premium" disabled>
+                <label for="premium" data-i18n="include_video_export">Include Video Export (Premium Feature)</label>
+            </div>
+        </div> -->
+        <button class="btn btn-primary" onclick="generateStory()" data-i18n="generate_story">Generate Story</button>
+    </div>
+</div>
+
+    <div id="preview" style="display: none;">
+        <div class="container">
+            <h1 data-i18n="story_preview">Story Preview</h1>
+            <div id="pages"></div>
+            <div style="display: flex; gap: 15px; justify-content: center; margin-top: 30px;">
+                <button class="btn btn-primary" onclick="downloadPDF()" data-i18n="save_as_pdf">Save as PDF</button>
+                <button class="btn btn-secondary" onclick="share()" data-i18n="share">Share</button>
+            </div>
+            <div id="video-section" style="display:none; text-align: center; margin-top: 20px;">
+                <button class="btn btn-primary" onclick="downloadVideo()" data-i18n="export_video">Export Video</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="overlay">
+        <div class="spinner-container">
+            <div class="spinner"></div>
+            <p class="processing-text">Creating your magical story...</p>
+        </div>
+    </div>
+
+    <div class="translation-container">
+        <div class="translation-icon" onclick="toggleTranslationDropdown()">
+            <i class="fas fa-globe"></i>
+        </div>
+        <div class="translation-dropdown" id="translationDropdown">
+            <div class="translation-option" data-lang="en"><span class="flag">🇺🇳</span><span data-i18n="english">English</span></div>
+            <div class="translation-option" data-lang="fr"><span class="flag">🇫🇷</span><span data-i18n="french">French</span></div>
+            <div class="translation-option" data-lang="de"><span class="flag">🇩🇪</span><span data-i18n="german">German</span></div>
+            <div class="translation-option" data-lang="it"><span class="flag">🇮🇹</span><span data-i18n="italian">Italian</span></div>
+            <div class="translation-option" data-lang="pt"><span class="flag">🇵🇹</span><span data-i18n="portuguese">Portuguese</span></div>
+            <div class="translation-option" data-lang="zh"><span class="flag">🇨🇳</span><span data-i18n="chinese">Chinese</span></div>
+            <div class="translation-option" data-lang="ar"><span class="flag">🇸🇦</span><span data-i18n="arabic">Arabic</span></div>
+            <div class="translation-option" data-lang="hi"><span class="flag">🇮🇳</span><span data-i18n="hindi">Hindi</span></div>
+            <div class="translation-option" data-lang="id"><span class="flag">🇮🇩</span><span data-i18n="indonesian">Indonesian</span></div>
+            <div class="translation-option" data-lang="nl"><span class="flag">🇳🇱</span><span data-i18n="dutch">Dutch</span></div>
+            <div class="translation-option" data-lang="ru"><span class="flag">🇷🇺</span><span data-i18n="russian">Russian</span></div>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-column">
+                    <h3 data-i18n="PromptToStory">PromptToStory</h3>
+                    <p data-i18n="footer_description">Creating magical stories for children through the power of AI and imagination.</p>
+                    <div class="social-links">
+                        <a href="#"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#"><i class="fab fa-twitter"></i></a>
+                        <a href="#"><i class="fab fa-instagram"></i></a>
+                        <a href="#"><i class="fab fa-pinterest"></i></a>
+                    </div>
+                </div>
+                <div class="footer-column">
+                    <h3 data-i18n="quick_links">Quick Links</h3>
+                    <ul class="footer-links">
+                        <li><a href="#features" data-i18n="features">Features</a></li>
+                        <li><a href="#how-it-works" data-i18n="how_it_works">How It Works</a></li>
+                        <li><a href="#examples" data-i18n="examples">Examples</a></li>
+                        <li><a href="#pricing" data-i18n="pricing">Pricing</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h3 data-i18n="support">Support</h3>
+                    <p data-i18n="support_description">We're here to help! Contact us for any questions or issues.</p>
+                    <p>Email: support@PromptToStory.com</p>
+                    <p>Phone: +1-800-123-4567</p>
+                    <ul class="footer-links">
+                        <!-- <li><a href="#" data-i18n="help_center">Help Center</a></li>
+                        <li><a href="#" data-i18n="contact_us">Contact Us</a></li>
+                        <li><a href="#" data-i18n="privacy_policy">Privacy Policy</a></li>
+                        <li><a href="#" data-i18n="terms_of_service">Terms of Service</a></li> -->
+                    </ul>
+                </div>
+            </div>
+            <div class="copyright">
+                <p data-i18n="copyright">&copy; 2025 PromptToStory. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='index.js') }}"></script>
+</body>
+</html>
