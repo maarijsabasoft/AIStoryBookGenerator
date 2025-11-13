@@ -101,7 +101,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
 # Initialize clients
-groq_client = Groq(api_key=GROQ_API_KEY)
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 genai.configure(api_key=GEMINI_API_KEY)
 eleven_client = ElevenLabs(api_key=ELEVENLABS_API_KEY) if ELEVENLABS_AVAILABLE and ELEVENLABS_API_KEY != "your_elevenlabs_api_key_here" else None
@@ -597,6 +597,10 @@ def create_fallback_image(width, height, message="Image Generation Failed"):
 
 def create_story_image(text, width=512, height=512):
     try:
+        if not groq_client:
+            logger.error("Groq client not initialized. GROQ_API_KEY environment variable is not set.")
+            return create_fallback_image(width, height, "API Key Missing")
+        
         summary_completion = groq_client.chat.completions.create(
             messages=[
                 {
@@ -760,6 +764,10 @@ def generate():
 
         # Generate story with Groq
         try:
+            if not groq_client:
+                logger.error("Groq client not initialized. GROQ_API_KEY environment variable is not set.")
+                raise ValueError("GROQ_API_KEY environment variable is not set. Please set it to use story generation.")
+            
             chat_completion = groq_client.chat.completions.create(
                 messages=[
                     {
